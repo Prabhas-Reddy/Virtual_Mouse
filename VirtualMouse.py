@@ -26,17 +26,20 @@ cap = cv2.VideoCapture(0)
 screen_width, screen_height = pyautogui.size()
 
 def process_frame(frame):
+    """Process the frame to detect hands."""
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results = hands.process(rgb_frame)
     return results
 
 def get_coordinates(hand_landmarks):
+    """Get screen coordinates of the index finger tip."""
     index_finger_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
     x = int(index_finger_tip.x * screen_width)
     y = int(index_finger_tip.y * screen_height)
     return x, y
 
 def draw_landmarks(frame, results):
+    """Draw hand landmarks on the frame."""
     if results.multi_hand_landmarks:
         for hand_landmarks in results.multi_hand_landmarks:
             mp_drawing.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
