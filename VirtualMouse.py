@@ -1,7 +1,7 @@
-from pynput.mouse import Controller
 import streamlit as st
 import cv2
 import mediapipe as mp
+import pyautogui
 import numpy as np
 
 # Streamlit App Title
@@ -22,9 +22,8 @@ FRAME_WINDOW = st.image([])
 # Initialize Webcam
 cap = cv2.VideoCapture(0)
 
-# Initialize Pynput mouse controller
-mouse = Controller()
-screen_width, screen_height = 1920, 1080  # Adjust to your screen resolution
+# Screen Dimensions
+screen_width, screen_height = pyautogui.size()
 
 def process_frame(frame):
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -65,7 +64,7 @@ while cap.isOpened():
             # Move the mouse with sensitivity scaling
             scaled_x = np.clip(x, 0, screen_width)
             scaled_y = np.clip(y, 0, screen_height)
-            mouse.position = (scaled_x, scaled_y)
+            pyautogui.moveTo(scaled_x, scaled_y, duration=0.01 * (11 - sensitivity))
 
     # Display the frame in Streamlit
     FRAME_WINDOW.image(frame, channels="BGR")
