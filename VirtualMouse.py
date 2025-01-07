@@ -1,7 +1,6 @@
 import streamlit as st
 import cv2
 import mediapipe as mp
-import pyautogui
 import numpy as np
 
 # Streamlit App Title
@@ -22,8 +21,8 @@ FRAME_WINDOW = st.image([])
 # Initialize Webcam
 cap = cv2.VideoCapture(0)
 
-# Screen Dimensions
-screen_width, screen_height = pyautogui.size()
+# Virtual screen dimensions (arbitrary for visual feedback)
+screen_width, screen_height = 1920, 1080
 
 def process_frame(frame):
     """Process the frame to detect hands."""
@@ -32,7 +31,7 @@ def process_frame(frame):
     return results
 
 def get_coordinates(hand_landmarks):
-    """Get screen coordinates of the index finger tip."""
+    """Get virtual screen coordinates of the index finger tip."""
     index_finger_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
     x = int(index_finger_tip.x * screen_width)
     y = int(index_finger_tip.y * screen_height)
@@ -59,15 +58,13 @@ while cap.isOpened():
     # Draw hand landmarks
     draw_landmarks(frame, results)
 
-    # Control the mouse using index finger
+    # Control the virtual mouse using index finger
     if results.multi_hand_landmarks:
         for hand_landmarks in results.multi_hand_landmarks:
             x, y = get_coordinates(hand_landmarks)
 
-            # Move the mouse with sensitivity scaling
-            scaled_x = np.clip(x, 0, screen_width)
-            scaled_y = np.clip(y, 0, screen_height)
-            pyautogui.moveTo(scaled_x, scaled_y, duration=0.01 * (11 - sensitivity))
+            # Display the virtual mouse position on screen
+            st.sidebar.write(f"Mouse Position: ({x}, {y})")
 
     # Display the frame in Streamlit
     FRAME_WINDOW.image(frame, channels="BGR")
