@@ -1,5 +1,5 @@
-streamlit==1.20.0
-opencv-python==4.5.5.64
-mediapipe==0.10.7
-numpy==1.24.2
-pynput==1.7.6  # For controlling the mouse
+opencv-python-headless==4.7.0.68
+mediapipe==0.8.10
+numpy==1.24.1
+pyautogui==0.9.53
+streamlit==1.16.0
