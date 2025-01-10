@@ -1,49 +1,149 @@
-import streamlit as st
 import cv2
 import mediapipe as mp
 import numpy as np
-from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
+import time
+import math
+import pyautogui
+import streamlit as st
 
-# Streamlit App Title
-st.title("AI Virtual Mouse with Hand Gestures")
+# Constants
+WIDTH, HEIGHT = 640, 480
+FRAME_REDUCTION = 100
+SMOOTHENING = 7
+CLICK_DISTANCE = 40
 
-# Sidebar Settings
-st.sidebar.title("Settings")
-sensitivity = st.sidebar.slider("Mouse Sensitivity", 1, 10, 5)
+class HandDetector:
+    def __init__(self, mode=False, maxHands=1, detectionCon=0.5, trackCon=0.5):
+        self.mode = mode
+        self.maxHands = maxHands
+        self.detectionCon = detectionCon
+        self.trackCon = trackCon
+        self.mpHands = mp.solutions.hands
+        self.hands = self.mpHands.Hands(
+            static_image_mode=self.mode,
+            max_num_hands=self.maxHands,
+            min_detection_confidence=self.detectionCon,
+            min_tracking_confidence=self.trackCon
+        )
+        self.mpDraw = mp.solutions.drawing_utils
+        self.tipIds = [4, 8, 12, 16, 20]
 
-# Initialize Mediapipe Hand model
-mp_hands = mp.solutions.hands
-mp_drawing = mp.solutions.drawing_utils
-
-# Screen dimensions (virtual for demonstration)
-screen_width, screen_height = 1920, 1080
-
-
-class HandGestureTransformer(VideoTransformerBase):
-    def __init__(self):
-        self.hands = mp_hands.Hands(min_detection_confidence=0.8, min_tracking_confidence=0.8)
-
-    def transform(self, frame):
-        img = frame.to_ndarray(format="bgr24")
-        img = cv2.flip(img, 1)  # Flip for natural interaction
-
-        # Process frame for hand tracking
-        results = self.hands.process(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                mp_drawing.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-
-                # Get virtual mouse coordinates
-                index_finger_tip = hand_landmarks.landmark[mp_hands.HandLandmark.INDEX_FINGER_TIP]
-                x = int(index_finger_tip.x * screen_width)
-                y = int(index_finger_tip.y * screen_height)
-
-                # Display the virtual mouse position on screen
-                cv2.putText(img, f"Mouse: ({x}, {y})", (10, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
+    def findHands(self, img, draw=True):
+        imgRGB = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        self.results = self.hands.process(imgRGB)
+        if self.results.multi_hand_landmarks:
+            for handLms in self.results.multi_hand_landmarks:
+                if draw:
+                    self.mpDraw.draw_landmarks(img, handLms, self.mpHands.HAND_CONNECTIONS)
         return img
 
+    def findPosition(self, img, handNo=0, draw=True):
+        xList, yList, bbox = [], [], []
+        self.lmList = []
+        if self.results.multi_hand_landmarks:
+            myHand = self.results.multi_hand_landmarks[handNo]
+            for id, lm in enumerate(myHand.landmark):
+                h, w, c = img.shape
+                cx, cy = int(lm.x * w), int(lm.y * h)
+                xList.append(cx)
+                yList.append(cy)
+                self.lmList.append([id, cx, cy])
+                if draw:
+                    cv2.circle(img, (cx, cy), 5, (255, 0, 255), cv2.FILLED)
 
-# Start webcam streaming using Streamlit WebRTC
-webrtc_streamer(key="virtual-mouse", video_transformer_factory=HandGestureTransformer)
+            xmin, xmax = min(xList), max(xList)
+            ymin, ymax = min(yList), max(yList)
+            bbox = xmin, ymin, xmax, ymax
+
+            if draw:
+                cv2.rectangle(img, (xmin - 20, ymin - 20), (xmax + 20, ymax + 20), (0, 255, 0), 2)
+
+        return self.lmList, bbox
+
+    def fingersUp(self):
+        fingers = []
+        if self.lmList[self.tipIds[0]][1] > self.lmList[self.tipIds[0] - 1][1]:
+            fingers.append(1)
+        else:
+            fingers.append(0)
+
+        for id in range(1, 5):
+            if self.lmList[self.tipIds[id]][2] < self.lmList[self.tipIds[id] - 2][2]:
+                fingers.append(1)
+            else:
+                fingers.append(0)
+
+        return fingers
+
+    def findDistance(self, p1, p2, img, draw=True, r=15, t=3):
+        x1, y1 = self.lmList[p1][1:]
+        x2, y2 = self.lmList[p2][1:]
+        cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+
+        if draw:
+            cv2.line(img, (x1, y1), (x2, y2), (255, 0, 255), t)
+            cv2.circle(img, (x1, y1), r, (255, 0, 255), cv2.FILLED)
+            cv2.circle(img, (x2, y2), r, (255, 0, 255), cv2.FILLED)
+            cv2.circle(img, (cx, cy), r, (0, 0, 255), cv2.FILLED)
+        length = math.hypot(x2 - x1, y2 - y1)
+
+        return length, img, [x1, y1, x2, y2, cx, cy]
+
+def main():
+    st.title("AI Virtual Mouse using Hand Gestures")
+    run = st.checkbox("Run Virtual Mouse")
+
+    if run:
+        pTime = 0
+        plocX, plocY = 0, 0
+        clocX, clocY = 0, 0
+
+        cap = cv2.VideoCapture(0)
+        cap.set(3, WIDTH)
+        cap.set(4, HEIGHT)
+        detector = HandDetector(maxHands=1)
+        screenWidth, screenHeight = pyautogui.size()
+
+        while cap.isOpened():
+            success, img = cap.read()
+            if not success:
+                st.warning("Failed to read from webcam.")
+                break
+
+            img = detector.findHands(img, draw=False)
+            lmList, bbox = detector.findPosition(img, draw=False)
+
+            fingers = [0, 0, 0, 0, 0]
+            if lmList:
+                x1, y1 = lmList[8][1:]  # Index finger tip
+                x2, y2 = lmList[12][1:]  # Middle finger tip
+                fingers = detector.fingersUp()
+
+            # Draw a rectangle to define the active area
+            cv2.rectangle(img, (FRAME_REDUCTION, FRAME_REDUCTION), (WIDTH - FRAME_REDUCTION, HEIGHT - FRAME_REDUCTION),
+                          (255, 0, 255), 2)
+
+            # Moving the mouse
+            if fingers[1] == 1 and fingers[2] == 0:  # Index finger is up
+                x3 = np.interp(x1, (FRAME_REDUCTION, WIDTH - FRAME_REDUCTION), (0, screenWidth))
+                y3 = np.interp(y1, (FRAME_REDUCTION, HEIGHT - FRAME_REDUCTION), (0, screenHeight))
+                clocX = plocX + (x3 - plocX) / SMOOTHENING
+                clocY = plocY + (y3 - plocY) / SMOOTHENING
+
+                pyautogui.moveTo(screenWidth - clocX, clocY)
+                plocX, plocY = clocX, clocY
+
+            # Clicking the mouse
+            if fingers[1] == 1 and fingers[2] == 1:  # Index and middle fingers are up
+                length, img, lineInfo = detector.findDistance(8, 12, img)
+                if length < CLICK_DISTANCE:
+                    pyautogui.click()
+
+            cTime = time.time()
+            fps = 1 / (cTime - pTime)
+            pTime = cTime
+
+        cap.release()
+
+if __name__ == "__main__":
+    main()
