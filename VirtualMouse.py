@@ -1,3 +1,4 @@
+import warnings
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -5,6 +6,13 @@ import time
 import math
 import pyautogui
 import streamlit as st
+import matplotlib.pyplot as plt  # Import matplotlib.pyplot to force loading fonts
+
+# Suppress matplotlib font manager warnings
+warnings.filterwarnings("ignore", category=UserWarning, module='matplotlib')
+
+# Force Matplotlib to build font cache
+plt.figure()  # This triggers Matplotlib to load and cache fonts
 
 # Constants
 WIDTH, HEIGHT = 640, 480
