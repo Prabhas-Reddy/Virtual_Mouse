@@ -1,4 +1,5 @@
 import warnings
+import os
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -8,10 +9,13 @@ import pyautogui
 import streamlit as st
 import matplotlib.pyplot as plt  # Import matplotlib.pyplot to force loading fonts
 
+# Set MPLCONFIGDIR to avoid building font cache during deployment
+os.environ['MPLCONFIGDIR'] = './.cache/matplotlib'
+
 # Suppress matplotlib font manager warnings
 warnings.filterwarnings("ignore", category=UserWarning, module='matplotlib')
 
-# Force Matplotlib to build font cache
+# Force Matplotlib to build font cache locally
 plt.figure()  # This triggers Matplotlib to load and cache fonts
 
 # Constants
