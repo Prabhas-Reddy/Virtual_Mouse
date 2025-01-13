@@ -7,7 +7,7 @@ import time
 import math
 import pyautogui
 import streamlit as st
-import matplotlib.pyplot as plt  # Import matplotlib.pyplot to force loading fonts
+import matplotlib.pyplot as plt
 
 # Set MPLCONFIGDIR to avoid building font cache during deployment
 os.environ['MPLCONFIGDIR'] = './.cache/matplotlib'
